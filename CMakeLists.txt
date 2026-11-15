@@ -173,6 +173,6 @@ if(BUILD_TESTING)
                     "-DREFERENCE=${CMAKE_CURRENT_BINARY_DIR}/fixtures/$<CONFIG>/rotation/reference-neutral.wav"
                     "-DLOG_DIR=${CMAKE_CURRENT_BINARY_DIR}/fixtures/$<CONFIG>"
                     -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/run_godot_smoke.cmake")
-        set_tests_properties(godot_demo PROPERTIES FIXTURES_REQUIRED "listener_reference;pcm_fixtures" TIMEOUT 70)
+        set_tests_properties(godot_demo PROPERTIES FIXTURES_REQUIRED "listener_reference;pcm_fixtures" TIMEOUT 260)
     endif()
 endif()

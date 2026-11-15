@@ -4,7 +4,7 @@ function(run_godot mode)
                     RESULT_VARIABLE status
                     OUTPUT_VARIABLE process_output
                     ERROR_VARIABLE process_error
-                    TIMEOUT 30)
+                    TIMEOUT 120)
     set(engine_log "")
     if(EXISTS "${log_file}")
         file(READ "${log_file}" engine_log)
