@@ -84,7 +84,7 @@ jobs:
         run: |
           library="addons/ambisonic_player/bin/Release/libgodot_ambi.dylib"
           lipo -create "arm64/$library" "x86_64/$library" -output "$RUNNER_TEMP/libgodot_ambi.dylib"
-          lipo -verify_arch arm64 x86_64 "$RUNNER_TEMP/libgodot_ambi.dylib"
+          lipo "$RUNNER_TEMP/libgodot_ambi.dylib" -verify_arch arm64 x86_64
           codesign --force --sign - "$RUNNER_TEMP/libgodot_ambi.dylib"
           codesign --verify "$RUNNER_TEMP/libgodot_ambi.dylib"
           cp "$RUNNER_TEMP/libgodot_ambi.dylib" "arm64/$library"
