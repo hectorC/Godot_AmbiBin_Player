@@ -1,0 +1,8 @@
+[configuration]
+entry_symbol = "ambisonic_player_init"
+compatibility_minimum = "4.8"
+reloadable = false
+
+[libraries]
+windows.x86_64 = "./bin/Release/godot_ambi.dll"
+macos = "./bin/Release/libgodot_ambi.dylib"

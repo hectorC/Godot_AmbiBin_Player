@@ -1,0 +1,95 @@
+name: macOS build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.8-beta3
+
+jobs:
+  test:
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+            godot_sha256: b944642ab358432d3843859adb7d764fbee64187d3bffc8333d3ccf2ac6cf8ab
+          - arch: x86_64
+            runner: macos-15-intel
+            godot_sha256: 34ccce857922e8c3982849b7b208dae57b9bf044e7f1079c4d3610d73a5d91d6
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download the pinned Godot editor
+        env:
+          ARCH: ${{ matrix.arch }}
+          GODOT_SHA256: ${{ matrix.godot_sha256 }}
+        run: |
+          archive="$RUNNER_TEMP/godot.zip"
+          asset="Godot_v${GODOT_VERSION}_macos.${ARCH}.zip"
+          curl --fail --location --retry 3 \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/${asset}" \
+            --output "$archive"
+          echo "$GODOT_SHA256  $archive" | shasum -a 256 --check
+          ditto -x -k "$archive" "$RUNNER_TEMP/godot"
+          editor="$(find "$RUNNER_TEMP/godot" -path '*/Contents/MacOS/Godot' -type f -print -quit)"
+          test -x "$editor"
+          "$editor" --version | grep -F '4.8.beta3.official.c51ff06e8'
+          echo "GODOT_EXE=$editor" >> "$GITHUB_ENV"
+      - name: Configure and build
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          cmake -S . -B build/macos \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="$ARCH" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DAMBI_BUILD_GODOT=ON -DAMBI_GODOT_EXE="$GODOT_EXE"
+          cmake --build build/macos --parallel 3
+      - name: Verify decoder and Godot playback
+        run: ctest --test-dir build/macos -C Release --output-on-failure
+      - name: Stage the tested add-on
+        run: cmake --install build/macos --config Release --prefix build/macos-addon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: build/macos-addon/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: macos-${{ matrix.arch }}-logs
+          path: |
+            build/macos/Testing/Temporary/LastTest.log
+            build/macos/fixtures/Release/godot-*.log
+
+  universal-addon:
+    needs: test
+    runs-on: macos-15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-arm64
+          path: arm64
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-x86_64
+          path: x86_64
+      - name: Combine the verified slices
+        run: |
+          library="addons/ambisonic_player/bin/Release/libgodot_ambi.dylib"
+          lipo -create "arm64/$library" "x86_64/$library" -output "$RUNNER_TEMP/libgodot_ambi.dylib"
+          lipo -verify_arch arm64 x86_64 "$RUNNER_TEMP/libgodot_ambi.dylib"
+          codesign --force --sign - "$RUNNER_TEMP/libgodot_ambi.dylib"
+          codesign --verify "$RUNNER_TEMP/libgodot_ambi.dylib"
+          cp "$RUNNER_TEMP/libgodot_ambi.dylib" "arm64/$library"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Godot-AmbiBin-Player-macOS
+          path: arm64/
+          if-no-files-found: error

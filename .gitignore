@@ -1,0 +1,15 @@
+/build/
+/.godot/
+__pycache__/
+/Godot_SAF_Ambisonic_Player_Development_Plan.docx
+/demo_godot/.godot/
+/demo_godot/addons/ambisonic_player/bin/
+/demo_godot/*.local.tscn
+/demo_godot/fixtures/*.wav
+!/demo_godot/fixtures/front-noise-burst.wav
+/demo_godot/fixtures/*.wav.import
+!/demo_godot/fixtures/fixed-sources.wav.import
+!/demo_godot/fixtures/fixed-sources-order-[2-5].wav.import
+!/demo_godot/fixtures/front-noise-burst.wav.import
+/demo_godot/fixtures/*.sofa
+/demo_godot/fixtures/*.sofa.import
