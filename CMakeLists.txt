@@ -1,23 +1,28 @@
 cmake_minimum_required(VERSION 3.24)
 project(GodotAmbiBinPlayer LANGUAGES C CXX)
 
+include(FetchContent)
+
 if(WIN32)
     if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR NOT MSVC_CXX_ARCHITECTURE_ID STREQUAL "x64")
         message(FATAL_ERROR "Windows builds use MSVC x64.")
     endif()
-    set(AMBI_MKL_ROOT "C:/Program Files (x86)/Intel/oneAPI/mkl/2025.3"
-        CACHE PATH "Intel oneMKL installation")
-    set(INTEL_MKL_HEADER_PATH "${AMBI_MKL_ROOT}/include")
-    set(INTEL_MKL_LIB
-        "${AMBI_MKL_ROOT}/lib/mkl_intel_lp64.lib"
-        "${AMBI_MKL_ROOT}/lib/mkl_sequential.lib"
-        "${AMBI_MKL_ROOT}/lib/mkl_core.lib")
-    foreach(required_file IN ITEMS "${INTEL_MKL_HEADER_PATH}/mkl.h" ${INTEL_MKL_LIB})
-        if(NOT EXISTS "${required_file}")
-            message(FATAL_ERROR "Missing oneMKL file: ${required_file}. Set AMBI_MKL_ROOT.")
-        endif()
-    endforeach()
-    set(SAF_PERFORMANCE_LIB SAF_USE_INTEL_MKL_LP64)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    FetchContent_Declare(ambi_openblas
+        URL https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.34/OpenBLAS-0.3.34-x64.zip
+        URL_HASH SHA256=e9cb6134541f36c27346d5fc5995652f060fba227cebbbabcbda5a5a44d7c76b
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        SOURCE_SUBDIR prebuilt)
+    FetchContent_MakeAvailable(ambi_openblas)
+    add_library(ambi_openblas SHARED IMPORTED)
+    set_target_properties(ambi_openblas PROPERTIES
+        IMPORTED_IMPLIB "${ambi_openblas_SOURCE_DIR}/lib/libopenblas.lib"
+        IMPORTED_LOCATION "${ambi_openblas_SOURCE_DIR}/bin/libopenblas.dll")
+    set(OPENBLAS_LIBRARY ambi_openblas)
+    set(LAPACKE_LIBRARY ambi_openblas)
+    set(OPENBLAS_HEADER_PATH "${ambi_openblas_SOURCE_DIR}/include")
+    set(LAPACKE_HEADER_PATH "${OPENBLAS_HEADER_PATH}")
+    set(SAF_PERFORMANCE_LIB SAF_USE_OPEN_BLAS_AND_LAPACKE)
     set(ambi_warnings /W4 /EHsc)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(SAF_PERFORMANCE_LIB SAF_USE_APPLE_ACCELERATE_LP64)
@@ -27,7 +32,6 @@ else()
 endif()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-include(FetchContent)
 FetchContent_Declare(saf
     GIT_REPOSITORY https://github.com/leomccormack/Spatial_Audio_Framework.git
     GIT_TAG 18fd5aba46e20787b51f28f7197a68506c965c07)
@@ -47,6 +51,9 @@ set(SAF_USE_FFTW OFF)
 set(SAF_ENABLE_SIMD OFF)
 set(saf_example_list ambi_bin)
 FetchContent_MakeAvailable(saf dr_libs)
+if(WIN32)
+    include(cmake/fix_saf_lapacke.cmake)
+endif()
 
 add_library(ambi_decoder STATIC src/ambisonic_decoder.cpp src/temporary_file.cpp)
 target_link_libraries(ambi_decoder PRIVATE saf_example_ambi_bin saf)
@@ -64,6 +71,11 @@ target_compile_options(ambi_wav PRIVATE ${ambi_warnings})
 add_executable(ambi_render src/main.cpp)
 target_link_libraries(ambi_render PRIVATE ambi_wav)
 target_compile_options(ambi_render PRIVATE ${ambi_warnings})
+if(WIN32)
+    add_custom_command(TARGET ambi_render POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "$<TARGET_FILE:ambi_openblas>" "$<TARGET_FILE_DIR:ambi_render>")
+endif()
 
 option(AMBI_BUILD_GODOT "Build the Godot 4.8 GDExtension and prepare the demo project" OFF)
 if(AMBI_BUILD_GODOT)
@@ -101,6 +113,13 @@ if(AMBI_BUILD_GODOT)
     add_dependencies(godot_ambi ambi_demo_fixture)
 
     set(addon_install "addons/ambisonic_player")
+    if(WIN32)
+        add_custom_command(TARGET godot_ambi POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                    "$<TARGET_FILE:ambi_openblas>" "$<TARGET_FILE_DIR:godot_ambi>")
+        install(FILES "$<TARGET_FILE:ambi_openblas>" DESTINATION "${addon_install}/bin/Release"
+                CONFIGURATIONS Release)
+    endif()
     install(TARGETS godot_ambi
         RUNTIME DESTINATION "${addon_install}/bin/Release"
         LIBRARY DESTINATION "${addon_install}/bin/Release"
@@ -109,6 +128,19 @@ if(AMBI_BUILD_GODOT)
         FILES_MATCHING PATTERN "*.gd" PATTERN "*.uid" PATTERN "*.cfg" PATTERN "*.gdextension"
         PATTERN "bin" EXCLUDE)
     install(FILES LICENSE LICENSES.md DESTINATION "${addon_install}")
+    set(notices "${addon_install}/notices")
+    install(DIRECTORY docs/notices/ DESTINATION "${notices}")
+    install(FILES "${godot-cpp_SOURCE_DIR}/LICENSE.md" DESTINATION "${notices}" RENAME godot-cpp.txt)
+    install(FILES "${dr_libs_SOURCE_DIR}/LICENSE" DESTINATION "${notices}" RENAME dr_libs.txt)
+    install(FILES "${saf_SOURCE_DIR}/framework/modules/saf_sofa_reader/libmysofa/LICENSE"
+            DESTINATION "${notices}" RENAME libmysofa.txt)
+    set(saf_resources "${saf_SOURCE_DIR}/framework/resources")
+    install(FILES "${saf_resources}/afSTFT/LICENSE.txt" DESTINATION "${notices}" RENAME afSTFT.txt)
+    install(FILES "${saf_resources}/convhull_3d/LICENSE" DESTINATION "${notices}" RENAME convhull_3d.txt)
+    install(FILES "${saf_resources}/kissFFT/COPYING.txt" DESTINATION "${notices}" RENAME KissFFT.txt)
+    install(FILES "${saf_resources}/md_malloc/LICENSE" DESTINATION "${notices}" RENAME md_malloc.txt)
+    install(FILES "${saf_resources}/speex_resampler/COPYING"
+            DESTINATION "${notices}" RENAME Speex-resampler.txt)
     install(FILES docs/addon-readme.md DESTINATION "${addon_install}" RENAME README.md)
     install(FILES LICENSE .gitignore DESTINATION ".")
 endif()

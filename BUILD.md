@@ -17,13 +17,13 @@ cmake --install build/macos --config Release --prefix build/macos-addon
 
 ## Asset Library release
 
-Stage the release from the CMake install output. For a combined release, put the tested Windows x64 DLL and universal macOS dylib in the same `addons/ambisonic_player/bin/Release` directory. Use a public distribution commit with that add-on at the archive root, plus the project license and ignore file. Keep the source and build recipes available at the corresponding source revision and identify that revision in the release documentation. Check the actual GitHub commit ZIP by installing it into a clean Godot project before submitting it. The Asset Library consumes that ZIP. [Submission guide](https://docs.godotengine.org/en/stable/community/asset_library/submitting_to_assetlib.html)
+Stage the release from the CMake install output. For a combined release, put the tested Windows x64 DLL, its OpenBLAS dependency, and the universal macOS dylib in `addons/ambisonic_player/bin/Release`. Use a public distribution commit with that add-on at the archive root, plus the project license and ignore file. Keep the source and build recipes available at the corresponding source revision and identify that revision in the release documentation. Check the actual GitHub commit ZIP by installing it into a clean Godot project before submitting it. The Asset Library consumes that ZIP. The newer Asset Store accepts an uploaded add-on ZIP. [Asset Library submission guide](https://docs.godotengine.org/en/stable/community/asset_library/submitting_to_assetlib.html) · [Asset Store submission guide](https://docs.godotengine.org/en/stable/community/asset_store/submitting_to_asset_store.html)
 
-The Windows development build still uses Intel oneMKL. Resolve its redistribution and GPL compatibility or switch the Windows release build to a compatible backend before publishing its DLL. The public demo uses generated directional fixtures. This workstation's private recording, HRIRs, and `demo_godot/main.local.tscn` are ignored by Git.
+The public demo uses generated directional fixtures. Personal recordings, SOFA files and `demo_godot/main.local.tscn` are ignored by Git.
 
 ## Build and test
 
-Install Visual Studio 2026 with Desktop development with C++, the Windows SDK, CMake, Git, Python 3 for CTest, and Intel oneMKL 2025.3 development files. The verified build used CMake 4.3.1, MSVC 19.51, and Windows SDK 10.0.26100. The configure step uses Git to fetch the pinned SAF and dr_libs sources. For a different oneMKL installation location, add `'-DAMBI_MKL_ROOT=C:/path/to/mkl'` to the configure command.
+Install Visual Studio 2026 with Desktop development with C++, the Windows SDK, CMake, Git, and Python 3 for CTest. The verified toolchain uses CMake 4.3.1, MSVC 19.51, and Windows SDK 10.0.26100. CMake fetches the pinned SAF and dr_libs sources and verifies the checksum of the OpenBLAS Windows x64 archive.
 
 ```powershell
 cmake -S . -B build/windows-x64 -G 'Visual Studio 18 2026' -A x64
@@ -33,7 +33,7 @@ ctest --test-dir build/windows-x64 -C Release --output-on-failure
 
 Use `Debug` in both commands for the Debug configuration. Set `-DBUILD_TESTING=OFF` at configure time to build the renderer without the Python test.
 
-SAF and AmbiBIN are built from upstream source with no patches. The build links sequential oneMKL LP64 statically and uses SAF's bundled FFT and default HRIRs. It enables SAF's SOFA reader with bundled libmysofa and zlib. The Release executable imports the Microsoft Visual C++ runtime and Windows system libraries. Its import table has no oneMKL DLL.
+Windows builds use OpenBLAS LP64 for BLAS and LAPACKE. CMake corrects four LAPACKE call arguments in the pinned SAF source so diffuse covariance matching works with OpenBLAS. The build uses SAF's bundled FFT and default HRIRs and enables the SOFA reader with libmysofa and zlib. The Windows add-on ships `libopenblas.dll` beside the GDExtension and declares it as a Godot export dependency.
 
 ## Revisions
 
@@ -43,7 +43,7 @@ SAF and AmbiBIN are built from upstream source with no patches. The build links 
 | [godot-cpp](https://github.com/godotengine/godot-cpp/commit/2a4c066e1e8c121046e9d35fe91cc8e726861c48) | `2a4c066e1e8c121046e9d35fe91cc8e726861c48` |
 | [SAF 1.3.5](https://github.com/leomccormack/Spatial_Audio_Framework/tree/18fd5aba46e20787b51f28f7197a68506c965c07) | `18fd5aba46e20787b51f28f7197a68506c965c07` |
 | [dr_libs](https://github.com/mackron/dr_libs/tree/f12e197fd462e4c22873fbd70d11b1d2f2c1dc3c) | `f12e197fd462e4c22873fbd70d11b1d2f2c1dc3c` |
-| Intel oneMKL | 2025.3.0 |
+| [OpenBLAS](https://github.com/OpenMathLib/OpenBLAS/releases/tag/v0.3.34) | 0.3.34 (Windows x64 LP64) |
 
 ## Reproduce the Godot API check
 
