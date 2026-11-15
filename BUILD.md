@@ -33,7 +33,7 @@ ctest --test-dir build/windows-x64 -C Release --output-on-failure
 
 Use `Debug` in both commands for the Debug configuration. Set `-DBUILD_TESTING=OFF` at configure time to build the renderer without the Python test.
 
-Windows builds use OpenBLAS LP64 for BLAS and LAPACKE. CMake corrects four LAPACKE call arguments in the pinned SAF source so diffuse covariance matching works with OpenBLAS. The build uses SAF's bundled FFT and default HRIRs and enables the SOFA reader with libmysofa and zlib. The Windows add-on ships `libopenblas.dll` beside the GDExtension and declares it as a Godot export dependency.
+Windows builds use OpenBLAS LP64 for BLAS and LAPACKE. CMake corrects four LAPACKE call arguments in the pinned SAF source so diffuse covariance matching works with OpenBLAS. The build uses SAF's bundled FFT and default HRIRs and enables the SOFA reader with libmysofa and zlib. The Windows add-on links the Microsoft C/C++ runtime statically, ships `libopenblas.dll` beside the GDExtension, and declares that DLL as a Godot export dependency.
 
 ## Revisions
 
