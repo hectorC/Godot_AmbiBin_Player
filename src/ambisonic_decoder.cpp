@@ -7,6 +7,7 @@
 #include <windows.h>
 #endif
 
+#include <saf.h> // Load SAF's C++ helpers before libmysofa opens its extern "C" block.
 #include <ambi_bin.h>
 #include <mysofa.h>
 
